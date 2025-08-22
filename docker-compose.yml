@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  #EL
+  geth:
+    image: ethereum/client-go:stable
+    container_name: geth-testnet
+    restart: unless-stopped
+    command:                
+      - --sepolia
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/jwt/jwt.hex
+      - --metrics
+      - --metrics.addr=0.0.0.0
+      - --metrics.port=6060
+      - --syncmode=snap
+      - --datadir=/data/geth
+      - --cache=4096
+      - --maxpeers=30
+    ports:
+      - "8545:8545"   # HTTP RPC
+      - "8551:8551"   # Engine API
+      - "6060:6060"   # Metrics
+    volumes:
+      - geth-data:/data/geth
+      - ./eth-jwt:/jwt:ro
+    networks:
+      - eth-net
+
+  #CL
+  lighthouse:
+    image: sigp/lighthouse:latest
+    container_name: lighthouse-sepolia
+    restart: unless-stopped
+    command:
+      lighthouse bn
+      --network sepolia
+      --execution-endpoint=http://geth:8551
+      --execution-jwt=/jwt/jwt.hex
+      --checkpoint-sync-url=https://checkpoint-sync.sepolia.ethpandaops.io
+      --http
+      --http-address 0.0.0.0
+      --http-port 5052
+      --metrics
+      --metrics-address 0.0.0.0
+      --metrics-port 8008
+      --datadir /data/lighthouse
+    depends_on:
+      - geth
+    ports:
+      - "5052:5052"   # HTTP API
+      - "8008:8008"   # Metrics
+    volumes:
+      - lighthouse-data:/data/lighthouse
+      - ./eth-jwt:/jwt
+    networks:
+      - eth-net
+
+networks:
+  eth-net:
+    driver: bridge
+
+volumes:
+  geth-data:
+  lighthouse-data:
